@@ -1,0 +1,199 @@
+"""C4 Dataset Spark Script"""
+
+import os
+import argparse
+import re
+import functools
+
+import tensorflow as tf
+from pyspark.sql import SparkSession
+from tensorflow_datasets.text import c4_utils
+import tensorflow_datasets.public_api as tfds
+
+
+_CITATION = """
+@article{2019t5,
+  author = {Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu},
+  title = {Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer},
+  journal = {arXiv e-prints},
+  year = {2019},
+  archivePrefix = {arXiv},
+  eprint = {1910.10683},
+}
+"""
+
+
+_SENTENCE_TOKENIZER = None
+
+
+def _load_sentence_tokenizer():
+    """Returns a sentence tokenization function."""
+    nltk = tfds.core.lazy_imports.nltk
+    # Lock to avoid a race-condition in the creation of the download directory.
+    return nltk.data.load("nltk:tokenizers/punkt/english.pickle")
+
+
+def _get_sentences(text):
+    global _SENTENCE_TOKENIZER
+    if not _SENTENCE_TOKENIZER:
+        _SENTENCE_TOKENIZER = _load_sentence_tokenizer()
+    return list(_SENTENCE_TOKENIZER.tokenize(tf.compat.as_text(text)))
+
+
+def get_clean_page_fn():
+    """Returns `clean_page` with pre-compiled badword and citation regexes."""
+    # Used to filter citation from Wikipedia pages (among others).
+    citation_regex = re.compile(r"\[\d*\]|\[edit\]|\[citation needed\]")
+    return functools.partial(clean_page, citation_regex=citation_regex)
+
+
+def clean_page(url_and_features,
+               citation_regex,
+               counter_inc_fn=None,
+               min_words_per_line=c4_utils._MIN_WORDS_PER_LINE,
+               min_num_sentences=c4_utils._MIN_NUM_SENTENCES,
+               max_word_length=c4_utils._MAX_WORD_LENGTH):
+    """Cleans a CommonCrawl page, yielding nothing if it should be skipped.
+
+    Cleaning removes lines with no end marks or with too few words. After line
+    filtering, pages are filtered out if they have too few sentences based on a
+    simple count of end marks.
+
+    Args:
+      url_and_features: tuple(string, dict), the url and features of the page.
+      citation_regex: Regex to use for finding Wikipedia-like citations to filter.
+      counter_inc_fn: function, a function taking the name of a counter to be
+        incremented and the (optional) amount. Defaults to a beam Metric counter.
+      min_words_per_line: int, the minimum number of words a line needs to not be
+        removed.
+      min_num_sentences: int, the minimum number of sentences a page needs to not
+        be skipped.
+      max_word_length: int, the maximum number of characters allowed in a word.
+        Lines containing a word with too many characters are removed.
+
+    Yields:
+      The url and cleaned text for the page.
+    """
+    url, features = url_and_features
+    text = features["text"]
+
+    if not counter_inc_fn:
+        counter_inc_fn = c4_utils.get_counter_inc_fn("clean-page")
+
+    lines = text.splitlines()
+    valid_lines = []
+    num_sentences = 0
+
+    def line_has_too_long_word(line):
+        for word in line.split():
+            if len(word) > max_word_length:
+                return True
+        return False
+
+    for line in lines:
+        line = line.strip()
+        if line_has_too_long_word(line):
+            counter_inc_fn("line-filtered:too_long_word")
+            continue
+        line = citation_regex.sub("", line)
+        if not line.endswith(c4_utils._END_MARKS) or line.endswith(c4_utils._ELLIPSIS):
+            counter_inc_fn("line-filtered:no_endmark")
+            continue
+        if len(line.split()) < min_words_per_line:
+            counter_inc_fn("line-filtered:too_short")
+            continue
+        line_lower = line.lower()
+        # Remove documents which contain lorem ipsum
+        if "lorem ipsum" in line_lower:
+            counter_inc_fn("filtered:loremipsum")
+            return
+        # Remove "javascript must be enabled" notices
+        if "javascript" in line_lower:
+            counter_inc_fn("line-filtered:javascript")
+            continue
+        # Remove docs which probably contain javascript code
+        if "{" in line:
+            counter_inc_fn("filtered:squigglybracket")
+            return
+        # Remove policy lines
+        if any(p in line_lower for p in c4_utils._POLICY_SUBSTRINGS):
+            counter_inc_fn("line-filtered:policy")
+            continue
+        num_sentences += len(_get_sentences(line))
+        valid_lines.append(line)
+        counter_inc_fn("line-passed")
+
+    if num_sentences < min_num_sentences:
+        counter_inc_fn("filtered:too_few_sentences")
+        return
+    counter_inc_fn("passed")
+    features["text"] = "\n".join(valid_lines).strip()
+    yield url, features
+
+
+def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
+    """Utility to remove duplicate lines across text documents."""
+    # Output: url, lines
+
+    # Select a single URL for each line in the input pages.
+    # Hash before comparison to avoid biasing by domain.
+    # line, [url]
+    line_to_selected_url = pages.flatMap(c4_utils._emit_url_to_lines)\
+        .groupByKey()\
+        .mapValues(lambda url_iter: [list(url_iter)[0]])
+    # print(line_to_selected_url.take(10))
+
+    # url, line
+    lines_to_keep = line_to_selected_url.map(lambda x: (x[1][0], x[0]))
+
+    # Output: url, text
+    final_docs = pages.cogroup(lines_to_keep)\
+        .mapValues(lambda x: {"features": list(list(x)[0]), "lines": list(list(x)[1])})\
+        .flatMap(lambda x: c4_utils._remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
+    print(final_docs.take(10))
+
+    return final_docs
+
+
+def c4_process(args):
+    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
+    if args.spark_archives:
+        spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
+            .master(args.spark_master)\
+            .getOrCreate()
+    else:
+        spark = SparkSession.builder.master(args.spark_master).getOrCreate()
+
+    wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
+
+    page_content = wet_file_paths\
+        .flatMap(c4_utils.split_wet_file)\
+        .filter(c4_utils.is_valid_length)\
+        .map(c4_utils.normalize_url)\
+        .groupByKey()\
+        .map(c4_utils.dedupe_urls)
+
+    page_content = page_content.filter(c4_utils.paragraph_filter)
+    page_content = page_content.flatMap(get_clean_page_fn())
+    page_content = remove_duplicate_text(page_content)
+    page_content = page_content.flatMap(c4_utils.detect_english)
+
+    print(page_content.take(10))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="C4 Dataset Manufacturing Script")
+
+    parser.add_argument("--spark-master", default="local[*]")
+    parser.add_argument("--spark-archives", default=None,
+                        help="https://spark.apache.org/docs/latest/api/python/user_guide/python_packaging.html#using-conda")
+    parser.add_argument("--wet-file-paths", nargs='+')
+
+    args = parser.parse_args()
+
+    c4_process(args)
+
+
+if __name__ == "__main__":
+    main()
