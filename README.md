@@ -18,7 +18,8 @@ pip install tensorflow-datasets \
 # 2. Download punkt tokenizer
 python -m nltk.downloader -d $(which python | xargs dirname)/../nltk_data punkt
 
-# 3. Running pyspark requires JAVA to be installed in your environment, you should make sure you have JDK installed and JAVA_HOME configured
+# 3. Run pyspark requires JAVA to be installed in your environment, you should
+#    make sure you have JDK installed and JAVA_HOME configured.
 ```
 
 If everything goes well, you can make the C4 dataset now.
