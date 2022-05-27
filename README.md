@@ -1,4 +1,4 @@
-# C4 Dataset Spark Script
+# C4 Dataset Script
 
 A simple stand-alone C4 dataset production script.
 
