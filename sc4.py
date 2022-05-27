@@ -1,6 +1,19 @@
+# Copyright 2022 The TensorFlow Datasets Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """C4 Dataset Spark Script"""
 
-import os
 import argparse
 import re
 import functools
@@ -131,6 +144,59 @@ def clean_page(url_and_features,
     yield url, features
 
 
+def _remove_lines_from_text(el, counter_inc_fn, min_num_sentences):
+    """Removes all lines from the page that do not match the given set of hashes.
+
+    Process the result of a join containing a single value for 'features' and zero
+    or more values for 'lines'. Each value in 'lines' is a lower-cased, hashed
+    line that has been selected to keep.
+
+    Args:
+      el: `(string, {'features': features_dict, 'lines': [string]})`, element
+        containing the result of a join on key with both the page text and
+        lower-cased, hashed lines to remove.
+      counter_inc_fn: function, a function taking the name of a counter to be
+        incremented and the (optional) amount.
+      min_num_sentences: int, the minimum number of sentences a page needs to not
+        be skipped.
+
+    Yields:
+      url: The URL of the page.
+      features: The page features with lines removed from text.
+    """
+    url, join_values = el
+    features = join_values["features"]
+
+    assert len(features) == 1, "Invalid page count (%d) for %s" % (len(features),
+                                                                   url)
+    features = features[0]
+    text = features["text"]
+    lines_to_keep = set(join_values["lines"])
+    new_lines = []
+    hashed_lines = set()
+    for line in text.split("\n"):
+        hashed_line = c4_utils._hash_text(line.strip().lower())
+        if hashed_line not in lines_to_keep:
+            counter_inc_fn("line-filtered:global_duplicate")
+        elif hashed_line in hashed_lines:
+            counter_inc_fn("line-filtered:local_duplicate")
+        else:
+            counter_inc_fn("line-passed")
+            new_lines.append(line)
+            hashed_lines.add(hashed_line)
+    new_text = "\n".join(new_lines)
+    if not new_text:
+        counter_inc_fn("filtered:empty")
+        return
+    if min_num_sentences and len(_get_sentences(new_text)) < min_num_sentences:
+        counter_inc_fn("filtered:too_few_sentences")
+        return
+    counter_inc_fn("passed")
+    new_features = features.copy()
+    new_features["text"] = new_text
+    yield (url, new_features)
+
+
 def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
     """Utility to remove duplicate lines across text documents."""
     # Output: url, lines
@@ -141,7 +207,6 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
     line_to_selected_url = pages.flatMap(c4_utils._emit_url_to_lines)\
         .groupByKey()\
         .mapValues(lambda url_iter: [list(url_iter)[0]])
-    # print(line_to_selected_url.take(10))
 
     # url, line
     lines_to_keep = line_to_selected_url.map(lambda x: (x[1][0], x[0]))
@@ -149,14 +214,12 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
     # Output: url, text
     final_docs = pages.cogroup(lines_to_keep)\
         .mapValues(lambda x: {"features": list(list(x)[0]), "lines": list(list(x)[1])})\
-        .flatMap(lambda x: c4_utils._remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
-    print(final_docs.take(10))
+        .flatMap(lambda x: _remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
 
     return final_docs
 
 
 def c4_process(args):
-    os.environ['PYSPARK_PYTHON'] = "./environment/bin/python"
     if args.spark_archives:
         spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
             .master(args.spark_master)\
@@ -178,7 +241,7 @@ def c4_process(args):
     page_content = remove_duplicate_text(page_content)
     page_content = page_content.flatMap(c4_utils.detect_english)
 
-    print(page_content.take(10))
+    page_content.saveAsTextFile(args.c4_save_path)
 
 
 def main():
@@ -189,6 +252,7 @@ def main():
     parser.add_argument("--spark-archives", default=None,
                         help="https://spark.apache.org/docs/latest/api/python/user_guide/python_packaging.html#using-conda")
     parser.add_argument("--wet-file-paths", nargs='+')
+    parser.add_argument("--c4-save-path", default="./c4")
 
     args = parser.parse_args()
 
