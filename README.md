@@ -8,7 +8,7 @@ Setup C4 work environment.
 
 ```bash
 # 1. Create an independent Anaconda environment and install python dependencies
-conda create -n -y c4-env pyspark conda-pack && conda activate c4-env
+conda create -y -n c4-env pyspark conda-pack && conda activate c4-env
 pip install tensorflow-datasets \
     tensorflow \
     nltk \
