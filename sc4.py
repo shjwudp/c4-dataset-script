@@ -14,6 +14,7 @@
 
 """C4 Dataset Spark Script"""
 
+import collections
 import argparse
 import re
 import functools
@@ -236,15 +237,31 @@ def c4_process(args):
         .groupByKey()\
         .map(c4_utils.dedupe_urls)
 
-    page_content = page_content.filter(c4_utils.paragraph_filter)
-    page_content = page_content.flatMap(get_clean_page_fn())
-    page_content = remove_duplicate_text(page_content)
+    if args.paragraph_filter:
+        page_content = page_content.filter(c4_utils.paragraph_filter)
+
+    if args.clean:
+        page_content = page_content.flatMap(get_clean_page_fn())
+
+    if args.dedupe:
+        page_content = remove_duplicate_text(page_content)
+
     page_content = page_content.flatMap(c4_utils.detect_english)
 
-    page_content.saveAsTextFile(args.c4_save_path)
+    if args.badwords_filter:
+        # Create dictionary of badwords regex for each available language.
+        badwords = collections.defaultdict(set)
+        lang = "en"
+        path = args.badwords_file_path
+        with tf.io.gfile.GFile(path) as f:
+            badwords[lang].update(l.strip() for l in f)
+
+        page_content = page_content.filter(c4_utils.get_badwords_filter_fn(badwords))
+
+    return page_content
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(
         description="C4 Dataset Manufacturing Script")
 
@@ -253,10 +270,30 @@ def main():
                         help="https://spark.apache.org/docs/latest/api/python/user_guide/python_packaging.html#using-conda")
     parser.add_argument("--wet-file-paths", nargs='+')
     parser.add_argument("--c4-save-path", default="./c4")
+    parser.add_argument('--no-paragraph-filter', action='store_false',
+                       help='Do not filter paragraph.',
+                       dest='paragraph_filter')
+    parser.add_argument('--no-clean', action='store_false',
+                       help='Do not remove lines with no end marks or with too few words.',
+                       dest='clean')
+    parser.add_argument('--no-dedupe', action='store_false',
+                       help='Do not dedupelicate lines across text documents.',
+                       dest='dedupe')
+    parser.add_argument('--no-badwords-filter', action='store_false',
+                       help='Do not filter out pages that contain any language-specific bad words.',
+                       dest='badwords_filter')
+    parser.add_argument("--badwords-file-path", type=str, default="./badwords/en")
 
     args = parser.parse_args()
 
-    c4_process(args)
+    return args
+
+
+def main():
+    args = parse_args()
+
+    c4_text = c4_process(args)
+    c4_text.saveAsTextFile(args.c4_save_path)
 
 
 if __name__ == "__main__":
