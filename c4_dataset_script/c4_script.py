@@ -1,3 +1,4 @@
+# Copyright (c) 2022 Jianbin Chang
 # Copyright 2022 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""C4 Dataset Spark Script"""
+"""C4 Dataset Script"""
 
 import collections
 import argparse
 import re
 import functools
+import pkg_resources
 
 import tensorflow as tf
 from pyspark.sql import SparkSession
@@ -282,9 +284,12 @@ def parse_args():
     parser.add_argument('--no-badwords-filter', action='store_false',
                        help='Do not filter out pages that contain any language-specific bad words.',
                        dest='badwords_filter')
-    parser.add_argument("--badwords-file-path", type=str, default="./badwords/en")
+    parser.add_argument("--badwords-file-path", type=str, default=None)
 
     args = parser.parse_args()
+
+    if args.badwords_file_path is None:
+        args.badwords_file_path = pkg_resources.resource_filename("c4_dataset_script", "badwords/en")
 
     return args
 
