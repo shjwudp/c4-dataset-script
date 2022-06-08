@@ -8,12 +8,8 @@ Setup C4 work environment.
 
 ```bash
 # 1. Create an independent Anaconda environment and install python dependencies
-conda create -y -n c4-env pyspark conda-pack && conda activate c4-env
-pip install tensorflow-datasets \
-    tensorflow \
-    nltk \
-    langdetect \
-    apache_beam
+conda create -y -n c4-env conda-pack && conda activate c4-env
+pip install git+https://github.com/shjwudp/c4-dataset-script
 
 # 2. Download punkt tokenizer
 python -m nltk.downloader -d $(which python | xargs dirname)/../nltk_data punkt

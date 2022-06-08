@@ -1,9 +1,8 @@
-# Copyright (c) 2022 Jianbin Chang
-
 from setuptools import find_packages
 from setuptools import setup
 
 REQUIRED_PKGS = [
+    "pyspark",
     "tensorflow-datasets",
     "tensorflow",
     "nltk",
@@ -19,13 +18,13 @@ setup(
     license="MIT",
     packages=find_packages(),
     package_data={
-        "badwords": [
+        "c4_dataset_script": [
             "badwords/en",
         ]
     },
     install_requires=REQUIRED_PKGS,
     scripts=[
-        "sc4.py"
+        "c4_dataset_script/c4_script.py",
     ],
     keywords="c4 datasets commoncrawl",
 )
