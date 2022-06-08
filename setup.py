@@ -2,7 +2,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 REQUIRED_PKGS = [
-    "pyspark",
+    "pyspark>=3.0.0",
     "tensorflow-datasets",
     "tensorflow",
     "nltk",
