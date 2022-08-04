@@ -28,7 +28,7 @@ Or submit to spark cluster.
 
 ```bash
 # 1. Before submitting to the cluster, you need to package the environment conda env
-conda pack -name c4-env -o c4-env.tar.gz
+conda pack --name c4-env -o c4-env.tar.gz
 
 # 2. Submit to spark cluster
 PYSPARK_DRIVER_PYTHON=python \
