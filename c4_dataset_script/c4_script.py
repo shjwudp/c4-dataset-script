@@ -222,6 +222,15 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
     return final_docs
 
 
+def dedupe_urls(a, b):
+    hash_a = c4_utils._hash_text(a["text"])
+    hash_b = c4_utils._hash_text(b["text"])
+
+    if hash_a > hash_b:
+        return a
+    return b
+
+
 def c4_process(args):
     if args.spark_archives:
         spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
@@ -236,8 +245,7 @@ def c4_process(args):
         .flatMap(c4_utils.split_wet_file)\
         .filter(c4_utils.is_valid_length)\
         .map(c4_utils.normalize_url)\
-        .groupByKey()\
-        .map(c4_utils.dedupe_urls)
+        .reduceByKey(dedupe_urls)
 
     if args.paragraph_filter:
         page_content = page_content.filter(c4_utils.paragraph_filter)
