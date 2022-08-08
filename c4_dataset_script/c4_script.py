@@ -170,9 +170,6 @@ def _remove_lines_from_text(el, counter_inc_fn, min_num_sentences):
     url, join_values = el
     features = join_values["features"]
 
-    assert len(features) == 1, "Invalid page count (%d) for %s" % (len(features),
-                                                                   url)
-    features = features[0]
     text = features["text"]
     lines_to_keep = set(join_values["lines"])
     new_lines = []
@@ -217,7 +214,7 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
 
     # Output: url, text
     final_docs = pages.join(lines_to_keep)\
-        .mapValues(lambda x: {"features": list(x[0]), "lines": x[1]})\
+        .mapValues(lambda x: {"features": x[0], "lines": x[1]})\
         .flatMap(lambda x: _remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
 
     return final_docs
