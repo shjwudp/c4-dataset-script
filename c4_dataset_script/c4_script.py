@@ -20,6 +20,7 @@ import argparse
 import re
 import functools
 import pkg_resources
+import faulthandler; faulthandler.enable()
 
 import tensorflow as tf
 from pyspark.sql import SparkSession
