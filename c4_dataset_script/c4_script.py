@@ -206,17 +206,18 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
 
     # Select a single URL for each line in the input pages.
     # Hash before comparison to avoid biasing by domain.
-    # line, [url]
+    # line, url
     line_to_selected_url = pages.flatMap(c4_utils._emit_url_to_lines)\
-        .groupByKey()\
-        .mapValues(lambda url_iter: [list(url_iter)[0]])
+        .reduceByKey(lambda a, b: a)
 
-    # url, line
-    lines_to_keep = line_to_selected_url.map(lambda x: (x[1][0], x[0]))
+    # Transform to url, [line]
+    lines_to_keep = line_to_selected_url.map(lambda x: (x[1], x[0]))\
+        .groupByKey()\
+        .mapValues(list)
 
     # Output: url, text
-    final_docs = pages.cogroup(lines_to_keep)\
-        .mapValues(lambda x: {"features": list(list(x)[0]), "lines": list(list(x)[1])})\
+    final_docs = pages.join(lines_to_keep)\
+        .mapValues(lambda x: {"features": list(x[0]), "lines": x[1]})\
         .flatMap(lambda x: _remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
 
     return final_docs
