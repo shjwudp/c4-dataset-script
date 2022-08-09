@@ -43,8 +43,6 @@ _CITATION = """
 
 _SENTENCE_TOKENIZER = None
 
-LOG4J = None
-
 
 def _load_sentence_tokenizer():
     """Returns a sentence tokenization function."""
@@ -233,6 +231,12 @@ def dedupe_urls(a, b):
     return b
 
 
+def log(loginfo):
+    sc = pyspark.SparkContext.getOrCreate()
+    log4j = sc._jvm.org.apache.log4j
+    log4j.LogManager.getRootLogger().info(loginfo)
+
+
 def normalize_url(el):
     ori_url, val = el
     try:
@@ -242,7 +246,7 @@ def normalize_url(el):
         url = url.rstrip("/")
         return url, val
     except:
-        LOG4J.LogManager.getRootLogger().info(f"ori_url {ori_url}")
+        log(f"ori_url {ori_url}")
         raise
 
 
@@ -253,13 +257,7 @@ def c4_process(args):
             .getOrCreate()
     else:
         spark = SparkSession.builder.master(args.spark_master).getOrCreate()
-
     spark.sparkContext.setLogLevel("DEBUG")
-
-    sc = pyspark.SparkContext.getOrCreate()
-    global LOG4J
-    LOG4J = sc._jvm.org.apache.log4j
-    LOG4J.LogManager.getRootLogger().setLevel(LOG4J.Level.DEBUG)
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
 
