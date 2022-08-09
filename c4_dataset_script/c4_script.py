@@ -23,6 +23,7 @@ import pkg_resources
 import faulthandler; faulthandler.enable()
 
 import tensorflow as tf
+import pyspark
 from pyspark.sql import SparkSession
 from tensorflow_datasets.text import c4_utils
 import tensorflow_datasets.public_api as tfds
@@ -41,6 +42,8 @@ _CITATION = """
 
 
 _SENTENCE_TOKENIZER = None
+
+LOG4J = None
 
 
 def _load_sentence_tokenizer():
@@ -239,7 +242,7 @@ def normalize_url(el):
         url = url.rstrip("/")
         return url, val
     except:
-        print("url", ori_url)
+        LOG4J.LogManager.getRootLogger().info(f"ori_url {ori_url}")
         raise
 
 
@@ -250,6 +253,13 @@ def c4_process(args):
             .getOrCreate()
     else:
         spark = SparkSession.builder.master(args.spark_master).getOrCreate()
+
+    spark.sparkContext.setLogLevel("DEBUG")
+
+    sc = pyspark.SparkContext()
+    global LOG4J
+    LOG4J = sc._jvm.org.apache.log4j
+    LOG4J.LogManager.getRootLogger().setLevel(LOG4J.Level.DEBUG)
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
 
