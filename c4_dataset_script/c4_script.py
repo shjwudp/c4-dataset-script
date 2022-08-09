@@ -256,7 +256,7 @@ def c4_process(args):
 
     spark.sparkContext.setLogLevel("DEBUG")
 
-    sc = pyspark.SparkContext()
+    sc = pyspark.SparkContext.getOrCreate()
     global LOG4J
     LOG4J = sc._jvm.org.apache.log4j
     LOG4J.LogManager.getRootLogger().setLevel(LOG4J.Level.DEBUG)
