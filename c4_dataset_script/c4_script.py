@@ -230,6 +230,19 @@ def dedupe_urls(a, b):
     return b
 
 
+def normalize_url(el):
+    ori_url, val = el
+    try:
+        url = tf.compat.as_text(ori_url)
+        url = re.sub(r"https?:\/\/(www\.)?", "", url)
+        url = re.sub(r"\?(utm_|ref|feed).*", "", url)
+        url = url.rstrip("/")
+        return url, val
+    except:
+        print("url", ori_url)
+        raise
+
+
 def c4_process(args):
     if args.spark_archives:
         spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
@@ -243,7 +256,7 @@ def c4_process(args):
     page_content = wet_file_paths\
         .flatMap(c4_utils.split_wet_file)\
         .filter(c4_utils.is_valid_length)\
-        .map(c4_utils.normalize_url)\
+        .map(normalize_url)\
         .reduceByKey(dedupe_urls)
 
     if args.paragraph_filter:
