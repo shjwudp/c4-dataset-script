@@ -251,12 +251,15 @@ def normalize_url(el):
 
 
 def c4_process(args):
-    if args.spark_archives:
-        spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
-            .master(args.spark_master)\
-            .getOrCreate()
+    if args.spark_master == "gcp":
+        spark = SparkSession.getOrCreate()
     else:
-        spark = SparkSession.builder.master(args.spark_master).getOrCreate()
+        if args.spark_archives:
+            spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
+                .master(args.spark_master)\
+                .getOrCreate()
+        else:
+            spark = SparkSession.builder.master(args.spark_master).getOrCreate()
     spark.sparkContext.setLogLevel("DEBUG")
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
