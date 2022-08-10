@@ -261,7 +261,7 @@ def c4_process(args):
                 .getOrCreate()
         else:
             spark = SparkSession.builder.master(args.spark_master).getOrCreate()
-    spark.sparkContext.setLogLevel("DEBUG")
+    spark.sparkContext.setLogLevel(args.spark_log_level)
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
 
