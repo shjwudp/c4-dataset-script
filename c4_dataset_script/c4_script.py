@@ -252,7 +252,8 @@ def normalize_url(el):
 
 def c4_process(args):
     if args.spark_master == "gcp":
-        spark = SparkSession.getOrCreate()
+        sc = pyspark.SparkContext.getOrCreate()
+        spark = SparkSession(sc)
     else:
         if args.spark_archives:
             spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
