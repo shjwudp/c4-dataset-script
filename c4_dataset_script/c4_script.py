@@ -317,6 +317,7 @@ def parse_args():
                        help='Do not filter out pages that contain any language-specific bad words.',
                        dest='badwords_filter')
     parser.add_argument("--badwords-file-path", type=str, default=None)
+    parser.add_argument("--spark-log-level", default="ERROR", choices=["ALL", "DEBUG", "ERROR", "FATAL", "INFO", "OFF", "TRACE", "WARN"])
 
     args = parser.parse_args()
 
