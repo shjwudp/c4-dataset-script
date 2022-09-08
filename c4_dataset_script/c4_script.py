@@ -169,10 +169,6 @@ def _remove_lines_from_text(el, counter_inc_fn, min_num_sentences):
     """
     url, join_values = el
     features = join_values["features"]
-
-    assert len(features) == 1, "Invalid page count (%d) for %s" % (len(features),
-                                                                   url)
-    features = features[0]
     text = features["text"]
     lines_to_keep = set(join_values["lines"])
     new_lines = []
@@ -206,17 +202,16 @@ def remove_duplicate_text(pages, min_num_sentences=c4_utils._MIN_NUM_SENTENCES):
 
     # Select a single URL for each line in the input pages.
     # Hash before comparison to avoid biasing by domain.
-    # line, [url]
+    # line, url
     line_to_selected_url = pages.flatMap(c4_utils._emit_url_to_lines)\
-        .groupByKey()\
-        .mapValues(lambda url_iter: [list(url_iter)[0]])
+        .reduceByKey(lambda a, b: a)
 
     # url, line
-    lines_to_keep = line_to_selected_url.map(lambda x: (x[1][0], x[0]))
+    lines_to_keep = line_to_selected_url.map(lambda x: (x[1], x[0]))
 
     # Output: url, text
     final_docs = pages.cogroup(lines_to_keep)\
-        .mapValues(lambda x: {"features": list(list(x)[0]), "lines": list(list(x)[1])})\
+        .mapValues(lambda x: {"features": list(x)[0], "lines": list(list(x)[1])})\
         .flatMap(lambda x: _remove_lines_from_text(list(x), counter_inc_fn=c4_utils.get_counter_inc_fn("dedupe-lines"), min_num_sentences=min_num_sentences))
 
     return final_docs
@@ -238,6 +233,7 @@ def c4_process(args):
             .getOrCreate()
     else:
         spark = SparkSession.builder.master(args.spark_master).getOrCreate()
+    spark.sparkContext.setLogLevel(args.spark_log_level)
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
 
@@ -293,6 +289,7 @@ def parse_args():
                        help='Do not filter out pages that contain any language-specific bad words.',
                        dest='badwords_filter')
     parser.add_argument("--badwords-file-path", type=str, default=None)
+    parser.add_argument("--spark-log-level", default="ERROR", choices=["ALL", "DEBUG", "ERROR", "FATAL", "INFO", "OFF", "TRACE", "WARN"])
 
     args = parser.parse_args()
 
