@@ -20,10 +20,8 @@ import argparse
 import re
 import functools
 import pkg_resources
-import faulthandler; faulthandler.enable()
 
 import tensorflow as tf
-import pyspark
 from pyspark.sql import SparkSession
 from tensorflow_datasets.text import c4_utils
 import tensorflow_datasets.public_api as tfds
@@ -228,36 +226,13 @@ def dedupe_urls(a, b):
     return b
 
 
-def log(loginfo):
-    sc = pyspark.SparkContext.getOrCreate()
-    log4j = sc._jvm.org.apache.log4j
-    log4j.LogManager.getRootLogger().info(loginfo)
-
-
-def normalize_url(el):
-    ori_url, val = el
-    try:
-        url = tf.compat.as_text(ori_url)
-        url = re.sub(r"https?:\/\/(www\.)?", "", url)
-        url = re.sub(r"\?(utm_|ref|feed).*", "", url)
-        url = url.rstrip("/")
-        return url, val
-    except:
-        log(f"ori_url {ori_url}")
-        raise
-
-
 def c4_process(args):
-    if args.spark_master == "gcp":
-        sc = pyspark.SparkContext.getOrCreate()
-        spark = SparkSession(sc)
+    if args.spark_archives:
+        spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
+            .master(args.spark_master)\
+            .getOrCreate()
     else:
-        if args.spark_archives:
-            spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
-                .master(args.spark_master)\
-                .getOrCreate()
-        else:
-            spark = SparkSession.builder.master(args.spark_master).getOrCreate()
+        spark = SparkSession.builder.master(args.spark_master).getOrCreate()
     spark.sparkContext.setLogLevel(args.spark_log_level)
 
     wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)
@@ -265,7 +240,7 @@ def c4_process(args):
     page_content = wet_file_paths\
         .flatMap(c4_utils.split_wet_file)\
         .filter(c4_utils.is_valid_length)\
-        .map(normalize_url)\
+        .map(c4_utils.normalize_url)\
         .reduceByKey(dedupe_urls)
 
     if args.paragraph_filter:
