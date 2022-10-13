@@ -18,15 +18,11 @@
 .. _WeLM: https://arxiv.org/abs/2209.10372
 """
 
-import collections
 import argparse
-import re
 import os
 import uuid
-import urllib.request
-import functools
-import pkg_resources
 
+import pyspark
 from langdetect import detect
 import tensorflow as tf
 from pyspark.sql import SparkSession
@@ -35,30 +31,6 @@ import tensorflow_datasets.public_api as tfds
 
 
 _DOWNLOAD_HOST = "https://commoncrawl.s3.amazonaws.com"
-
-
-def download_wet_file(path, dl_dir):
-    url = f"{_DOWNLOAD_HOST}/{path}"
-    out_path = f"{dl_dir}/{path}"
-
-    if tf.io.gfile.exists(out_path):
-        c4_utils.get_counter_inc_fn("download_wet_url")("exists")
-        return out_path
-
-    tmp_dir = f"{out_path}.incomplete{uuid.uuid4().hex}"
-    try:
-        tf.io.gfile.makedirs(tmp_dir)
-        downloader = tfds.download.downloader.get_downloader()
-        with downloader.tqdm():
-            # TODO(slebedev): Investigate why pytype infers Promise[Future[...]].
-            dl_path = downloader.download(url, tmp_dir).get().path  # type: ignore
-            tf.io.gfile.rename(os.fspath(dl_path), out_path, overwrite=True)
-    finally:
-        if tf.io.gfile.exists(tmp_dir):
-            tf.io.gfile.rmtree(tmp_dir)
-
-        c4_utils.get_counter_inc_fn("download_wet_url")("downloaded")
-    return out_path
 
 
 def dedupe_urls(a, b):
@@ -99,11 +71,15 @@ def c4_process(args):
         spark = SparkSession.builder.config("spark.archives", args.spark_archives)\
             .master(args.spark_master)\
             .getOrCreate()
+        sc = spark.sparkContext
+    elif args.spark_master == "gcp":
+        sc = pyspark.SparkContext()
     else:
         spark = SparkSession.builder.master(args.spark_master).getOrCreate()
-    spark.sparkContext.setLogLevel(args.spark_log_level)
+        sc = spark.sparkContext
+    sc.setLogLevel(args.spark_log_level)
 
-    wet_file_paths = spark.sparkContext.parallelize(args.wet_file_paths)\
+    wet_file_paths = sc.textFile(args.wet_file_paths)\
         .repartition(args.input_repartition)
 
     page_content = wet_file_paths\
