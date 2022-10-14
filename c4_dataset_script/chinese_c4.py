@@ -23,15 +23,14 @@ import os
 import uuid
 
 import pyspark
-from langdetect import detect
+import langdetect
 import tensorflow as tf
 from pyspark.sql import SparkSession
 from tensorflow_datasets.text import c4_utils
 import tensorflow_datasets.public_api as tfds
 
 
-_DOWNLOAD_HOST = "https://commoncrawl.s3.amazonaws.com"
-
+_DOWNLOAD_HOST = "https://data.commoncrawl.org"
 
 def dedupe_urls(a, b):
     hash_a = c4_utils._hash_text(a["text"])
@@ -86,11 +85,9 @@ def c4_process(args):
         .map(lambda wet_path: download_wet_file(wet_path, os.path.join(args.download_dir, "c4_wet_files")))\
         .flatMap(c4_utils.split_wet_file)\
         .filter(c4_utils.is_valid_length)\
+        .filter(lambda url_doc: url_doc[1]["text"] and langdetect.detect(url_doc[1]["text"]) in ["zh-cn", "zh-tw"])\
         .map(c4_utils.normalize_url)\
         .reduceByKey(dedupe_urls)
-
-    page_content = page_content\
-        .filter(lambda doc: detect(doc["text"]) in ["zh-cn", "zh-tw"])
 
     return page_content
 
@@ -102,7 +99,7 @@ def parse_args():
     parser.add_argument("--spark-master", default="local[*]")
     parser.add_argument("--spark-archives", default=None,
                         help="https://spark.apache.org/docs/latest/api/python/user_guide/python_packaging.html#using-conda")
-    parser.add_argument("--wet-file-paths", nargs='+')
+    parser.add_argument("--wet-file-paths", required=True)
     parser.add_argument("--download-dir", required=True, help="Download file directory, you can configure shared storage.")
     parser.add_argument("--input-repartition", default=1000)
     parser.add_argument("--c4-save-path", default="./c4")
