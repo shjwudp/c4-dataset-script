@@ -81,11 +81,18 @@ def c4_process(args):
     wet_file_paths = sc.textFile(args.wet_file_paths)\
         .repartition(args.input_repartition)
 
+    def filter_chinese_content(url_doc):
+        text = url_doc[1]["text"]
+        try:
+            return langdetect.detect(text) in ["zh-cn", "zh-tw"]
+        except:
+            return False
+
     page_content = wet_file_paths\
         .map(lambda wet_path: download_wet_file(wet_path, os.path.join(args.download_dir, "c4_wet_files")))\
         .flatMap(c4_utils.split_wet_file)\
         .filter(c4_utils.is_valid_length)\
-        .filter(lambda url_doc: url_doc[1]["text"] and langdetect.detect(url_doc[1]["text"]) in ["zh-cn", "zh-tw"])\
+        .filter(filter_chinese_content)\
         .map(c4_utils.normalize_url)\
         .reduceByKey(dedupe_urls)
 
