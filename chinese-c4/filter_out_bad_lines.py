@@ -2,7 +2,7 @@
 
 Instructions:
 ```bash
-cat books.jsonl | python filter_out_bad_lines.py > clean_books.jsonl
+cat books.jsonl | python filter_out_bad_lines.py --badwords_filepath ./badwords/zh > clean_books.jsonl
 ```
 """
 
