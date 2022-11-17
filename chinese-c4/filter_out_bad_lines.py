@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser("Filter out bad lines.")
+    parser.add_argument("--badwords_filepath", required=True)
     parser.add_argument("--output_bad_lines", default="bad_lines.jsonl", help="output file for bad lines")
 
     args = parser.parse_args()
@@ -38,9 +39,9 @@ def is_bad_line(line):
     return False
 
 
-def is_bad_doc(doc):
+def is_bad_doc(doc, badwords_filepath):
     count = 0
-    for bad_word in open("bad_words.list"):
+    for bad_word in open(badwords_filepath):
         bad_word = bad_word.strip()
         if bad_word in doc:
             count += doc.count(bad_word)
@@ -53,9 +54,6 @@ def is_bad_doc(doc):
 def main():
     args = parse_args()
     bad_lines_file = open(args.output_bad_lines, "wt")
-    bad_words = []
-    for word in open("bad_words.list"):
-        bad_words.append(word)
 
     for line in tqdm(sys.stdin):
         try:
@@ -63,7 +61,7 @@ def main():
         except:
             continue
 
-        if is_bad_doc(j["text"]):
+        if is_bad_doc(j["text"], args.badwords_filepath):
             print(json.dumps(j, ensure_ascii=False), file=bad_lines_file)
             continue
 
