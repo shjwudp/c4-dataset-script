@@ -1,10 +1,10 @@
 # C4 Dataset Script
 
-A simple stand-alone C4 dataset production script.
+[C4](https://www.tensorflow.org/datasets/catalog/c4) is a great way to get a colossal cleaned web corpus. Unfortunately, Google open-sourced c4 script highly depends on GCP and code mixed in a big repo. Therefore, it takes work to develop it freely. This repository extracts the processing logic and implements it to run on Spark. In addition, some helpful data process method in MassiveText is implemented in massivetext_utils.py.
 
-## Getting Started
+## Run c4 script on Spark
 
-Setup C4 work environment.
+Setup c4 work environment.
 
 ```bash
 # 1. Create an independent Anaconda environment and install python dependencies

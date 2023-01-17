@@ -3,7 +3,7 @@ from setuptools import setup
 
 REQUIRED_PKGS = [
     "pyspark>=3.0.0",
-    "tensorflow-datasets",
+    "tensorflow-datasets==4.6.0",
     "tensorflow",
     "nltk",
     "langdetect",
