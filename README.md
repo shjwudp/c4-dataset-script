@@ -39,3 +39,44 @@ python c4_dataset_script/c4_script.py \
     --spark-master $SPARK_MASTER_ADDR \
     --spark-archives c4-env.tar.gz#environment
 ```
+
+## Make colossal cleaned Chinese web corpus
+
+Following the instructions, build a cleaned Chinese web corpus from Common Crawl web crawl data.
+
+## 1. Download the WET crawl archive index file
+
+Common Crawl organized crawled data into some archives. You can browse archives list [here](https://commoncrawl.org/the-data/get-started/). In the next step, we will download text data (WET) as the input of processing. First, download the WET crawl archive index file.
+
+```bash
+cd c4_dataset_script
+wget -r --no-parent https://data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz
+```
+
+*You can get CRAWL_ARCHIVE_ID from [here](https://commoncrawl.org/the-data/get-started/). For instance: CC-MAIN-2022-49.*
+
+## 2. Run download and Chinese screening script on Spark
+
+```bash
+python Chinese/download_web_docs.py \
+    --wet-paths ./data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz \
+    --output ./download-docs
+```
+
+## 3. Filter out non-sentence lines and toxic document
+
+Refer to the c4 heuristics method. I used the following strategies for cleaning up Common Crawl's web-extracted text:
+
+ - Only retained lines that ended in a terminal punctuation mark or colon.
+ - Discarded any page with fewer than five sentences and only retained lines that
+contained at least five words.
+ - Removed any page that contained any word on the "List of Dirty, Naughty, Obscene
+or Otherwise Bad Words."
+ - Many of the scraped pages contained Chinese garbled, so we removed any line with the garbled characters. For example: "[-]|□|■".
+
+```bash
+cat ./download-docs/*/part-* | \
+    python Chinese/filter_out_bad_lines.py \
+        --badwords_filepath ./badwords/zh \
+         > clean_docs.jsonl
+```
