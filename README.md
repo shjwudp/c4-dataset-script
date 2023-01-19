@@ -58,9 +58,10 @@ wget -r --no-parent https://data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/
 ## 2. Run download and Chinese screening script on Spark
 
 ```bash
-python Chinese/download_web_docs.py \
-    --wet-paths ./data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz \
-    --output ./download-docs
+spark-submit --master SPARK_MASTER_ADDR \
+    Chinese/download_web_docs.py \
+        --wet-paths ./data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz \
+        --output ./download-docs
 ```
 
 ## 3. Filter out non-sentence lines and toxic document
