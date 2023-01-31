@@ -42,23 +42,23 @@ python c4_dataset_script/c4_script.py \
 
 ## Make colossal cleaned Chinese web corpus
 
-Following the instructions, build a cleaned Chinese web corpus from Common Crawl web crawl data.
+Referring to the method of C4, there is a data processing pipeline building for a cleaned Chinese web corpus. It includes web page download, Chinese recognition, heuristics text filter method, toxic recognition and filter, and Repetition Removal used in Google/DeepMind MassiveText.
 
 ## 1. Download the WET crawl archive index file
 
-Common Crawl organized crawled data into some archives. You can browse archives list [here](https://commoncrawl.org/the-data/get-started/). In the next step, we will download text data (WET) as the input of processing. First, download the WET crawl archive index file.
+Common Crawl organized crawled data into some archives. You can browse the archives list from [here](https://commoncrawl.org/the-data/get-started/). In the next step, we will download text data (WET) as the input of processing. First, download the WET crawl archive index file.
 
 ```bash
 cd c4_dataset_script
 wget -r --no-parent https://data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz
 ```
 
-*You can get CRAWL_ARCHIVE_ID from [here](https://commoncrawl.org/the-data/get-started/). For instance: CC-MAIN-2022-49.*
+*You can get CRAWL_ARCHIVE_ID [here](https://commoncrawl.org/the-data/get-started/). For instance: CC-MAIN-2022-49.*
 
 ## 2. Run download and Chinese screening script on Spark
 
 ```bash
-spark-submit --master SPARK_MASTER_ADDR \
+spark-submit --master ${SPARK_MASTER_ADDR} \
     Chinese/download_web_docs.py \
         --wet-paths ./data.commoncrawl.org/crawl-data/${CRAWL_ARCHIVE_ID}/wet.paths.gz \
         --output ./download-docs
@@ -73,7 +73,7 @@ Refer to the c4 heuristics method. I used the following strategies for cleaning 
 contained at least five words.
  - Removed any page that contained any word on the "List of Dirty, Naughty, Obscene
 or Otherwise Bad Words."
- - Many of the scraped pages contained Chinese garbled, so we removed any line with the garbled characters. For example: "[-]|□|■".
+ - Many of the scraped pages contained Chinese garbled, so we removed any line with the garbled characters. For example: "[-]|□|■|�".
 
 ```bash
 cat ./download-docs/*/part-* | \
@@ -81,3 +81,18 @@ cat ./download-docs/*/part-* | \
         --badwords_filepath ./badwords/zh \
          > clean_docs.jsonl
 ```
+
+*About 93.57% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_bad-lines_samples.jsonl).*
+
+## 4. Repetition Removal
+
+Check the percentage of duplicate content in the web document, and the program will remove documents whose duplicate proportion exceeds the preset threshold. This function implements "Repetion Removal" as described in [Gopher](https://arxiv.org/abs/2112.11446).
+
+```bash
+spark-submit --master ${SPARK_MASTER_ADDR} \
+    Chinese/repetition_removal.py \
+        --input clean_docs.jsonl \
+        --output ./repetition_removal_output
+```
+
+*About 21.21% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_Repetition-Removal_samples.jsonl).*
