@@ -13,19 +13,19 @@ def hash_text(text):
 def is_repetition_removal(
     text, duplicate_line_fraction=0.3, duplicate_line_character_faction=0.2
 ):
-    """Check if there is repeated content in the input text. Excessive repetition
-    is often linked with uninformative content, can be be used to determine whether
-    it is low-quality text. This function implements "Repetition Removal" as
-    described in Gopher_,
+    """Check if there is repeated content in the input text. Excessive
+    repetition is often linked with uninformative content and can be used to
+    determine whether it is low-quality text. This function implements
+    "Repetition Removal" as described in Gopher_.
 
     .. _Gopher: https://arxiv.org/abs/2112.11446
 
     Args:
         text (str): input text.
-        duplicate_line_fraction (float, optional): Duplicate row deduplication threshold.
-            Defaults to 0.3.
-        duplicate_line_character_faction (float, optional): Threshold for the proportion
-            of repeated line characters. Defaults to 0.2.
+        duplicate_line_fraction (float, optional): Duplicate row deduplication
+            threshold. Defaults to 0.3.
+        duplicate_line_character_faction (float, optional): Threshold for the
+            proportion of repeated line characters. Defaults to 0.2.
 
     Returns:
         bool: If there is repeated content in the input text.
@@ -90,17 +90,20 @@ def is_repetition_removal(
 
 
 def docs_dedup(docs, ngram=13, jaccard_similarity_threshold=0.8, min_hash_tables=20):
-    """Use the MinHash algorithm to calculate all approximately duplicate documents and
-    remove them, obtain a set of unique documents. This function implements "Document Deduplication"
-    as described in Gopher_,
+    """Use the MinHash algorithm to calculate all approximately duplicate
+    documents and remove them, obtain a set of unique documents. This function
+    implements "Document Deduplication" as described in Gopher_.
 
     .. _Gopher: https://arxiv.org/abs/2112.11446
 
     Args:
-        docs (pyspark.sql.DataFrame): Document text and id, schema ("id", "text").
+        docs (pyspark.sql.DataFrame): Document text and id, schema
+            ("id", "text").
         ngram (int, optional): NGram for text vectorization. Defaults to 13.
-        jaccard_similarity_threshold (float, optional): Jaccard similarities threshold. Defaults to 0.8.
-        min_hash_tables (int, optional): Number of MinHash hash tables. Defaults to 20.
+        jaccard_similarity_threshold (float, optional): Jaccard similarities
+            threshold. Defaults to 0.8.
+        min_hash_tables (int, optional): Number of MinHash hash tables.
+            Defaults to 20.
     """
 
     def tokenize(docs_partition):

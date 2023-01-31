@@ -16,8 +16,14 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser("Filter out bad lines.")
-    parser.add_argument("--badwords_filepath", required=True)
-    parser.add_argument("--output_bad_lines", default="bad_lines.jsonl.zst", help="output file for bad lines")
+    parser.add_argument("--badwords_filepath", default=None,
+        help="The file path of the toxic word dictionary, if you set this "
+        "argument, the program will filter out which document has over limit of"
+        " toxic word count. The format of the dictionary file is one word per"
+        "line."
+    )
+    parser.add_argument("--output_bad_lines", default="bad_lines.jsonl.zst",
+        help="output file for bad lines")
 
     args = parser.parse_args()
 
@@ -32,7 +38,7 @@ def is_bad_line(line):
     if len(line) < 5 or len(line) > 500:
         return True
 
-    ill_word_regex = "[-]|□|■|[①-⑳]|[⑴-⒇]|[㈠-㈩]|[⒈-⒓]"
+    ill_word_regex = "[-]|□|■|�|[①-⑳]|[⑴-⒇]|[㈠-㈩]|[⒈-⒓]"
 
     if re.search(ill_word_regex, line) != None:
         return True
@@ -62,9 +68,10 @@ def main():
         except:
             continue
 
-        if is_bad_doc(j["text"], args.badwords_filepath):
-            print(json.dumps(j, ensure_ascii=False), file=bad_lines_file)
-            continue
+        if args.badwords_filepath is not None:
+            if is_bad_doc(j["text"], args.badwords_filepath):
+                print(json.dumps(j, ensure_ascii=False), file=bad_lines_file)
+                continue
 
         output = []
         bad_lines = []
