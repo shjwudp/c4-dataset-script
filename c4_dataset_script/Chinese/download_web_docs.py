@@ -15,6 +15,8 @@ from tqdm import tqdm
 
 
 CC_DOMAIN = "https://data.commoncrawl.org"
+S3_DOMAIN = "commoncrawl"
+S3_CLIENT = None
 
 # WET file constants
 _PAGE_DELIMITER = "WARC/1.0"
@@ -101,12 +103,17 @@ def request_with_retry(connection_reset_retry=20, *args, **kwargs):
 def download_and_package(
     cc_path,
     chinese_filtering=True,
+    run_on_aws=False,
 ):
     logging.basicConfig(level=logging.DEBUG)
 
     for _ in range(10):
-        response = request_with_retry(url=f"{CC_DOMAIN}/{cc_path}")
-        download_file = io.BytesIO(response.content)
+        if run_on_aws:
+            global S3_CLIENT
+            download_file = S3_CLIENT.get_object(Bucket=S3_DOMAIN, Key=cc_path)["Body"]
+        else:
+            response = request_with_retry(url=f"{CC_DOMAIN}/{cc_path}")
+            download_file = io.BytesIO(response.content)
         page_list = []
         try:
             for page in tqdm(split_wet_file(download_file), desc=f"split_wet_file {download_file}"):
@@ -142,7 +149,13 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--spark-sub-job", default=50,
         help="From the data dimention, divide the spark job into sub-jobs, reducing the loss of job failed.")
+    parser.add_argument("--aws", action="store_true")
     args = parser.parse_args()
+
+    if args.aws:
+        import boto3
+        global S3_CLIENT
+        S3_CLIENT = boto3.client("s3")
 
     spark = SparkSession.builder\
             .appName("Download Chinese web docs")\
