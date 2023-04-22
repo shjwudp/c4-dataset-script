@@ -23,8 +23,5 @@ setup(
         ]
     },
     install_requires=REQUIRED_PKGS,
-    scripts=[
-        "c4_dataset_script/c4_script.py",
-    ],
     keywords="c4 datasets commoncrawl",
 )
