@@ -38,7 +38,7 @@ def is_bad_line(line):
     if len(line) < 5 or len(line) > 500:
         return True
 
-    ill_word_regex = "[-]|□|■|�|[①-⑳]|[⑴-⒇]|[㈠-㈩]|[⒈-⒓]"
+    ill_word_regex = "[-]|□|■|�"
 
     if re.search(ill_word_regex, line) != None:
         return True
