@@ -140,7 +140,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--wet-paths", nargs="+", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--spark-sub-job", default=50,
+    parser.add_argument("--spark-sub-job", default=50, type=int,
         help="From the data dimention, divide the spark job into sub-jobs, reducing the loss of job failed.")
     args = parser.parse_args()
 
