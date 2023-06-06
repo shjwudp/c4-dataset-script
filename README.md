@@ -68,12 +68,12 @@ spark-submit --master ${SPARK_MASTER_ADDR} \
 
 Refer to the c4 heuristics method. I used the following strategies for cleaning up Common Crawl's web-extracted text:
 
- - Only retained lines that ended in a terminal punctuation mark or colon.
- - Discarded any page with fewer than five sentences and only retained lines that
+- Only retained lines that ended in a terminal punctuation mark or colon.
+- Discarded any page with fewer than five sentences and only retained lines that
 contained at least five words.
- - Removed any page that contained any word on the "List of Dirty, Naughty, Obscene
+- Removed any page that contained any word on the "List of Dirty, Naughty, Obscene
 or Otherwise Bad Words."
- - Many of the scraped pages contained Chinese garbled, so we removed any line with the garbled characters. For example: "[-]|□|■|�".
+- Many of the scraped pages contained Chinese garbled, so we removed any line with the garbled characters. For example: "[-]|□|■|�".
 
 ```bash
 cat ./download-docs/*/part-* | \
@@ -84,9 +84,22 @@ cat ./download-docs/*/part-* | \
 
 *About 93.57% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_bad-lines_samples.jsonl).*
 
-## 4. Repetition Removal
+## 4. Remove duplicated text
 
-Check the percentage of duplicate content in the web document, and the program will remove documents whose duplicate proportion exceeds the preset threshold. This function implements "Repetion Removal" as described in [Gopher](https://arxiv.org/abs/2112.11446).
+Execute text deduplication strategy comes from C4. The algorithm cuts the document into lines and hashes and deduplicates all lines in the data set. This simple strategy works very well for duplicated header and footer content.
+
+```bash
+spark-submit --master ${SPARK_MASTER_ADDR} \
+    Chinese/remove_duplicate_text.py \
+        --input clean_docs.jsonl \
+        --output ./deduplicated_text
+```
+
+*About 62.67% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_Remove-Duplicated-Text_samples.jsonl).*
+
+## 5. Remove documents that are over self-repeating - Repetition Removal in DeepMind MassiveText
+
+Check the percentage of duplicate content in the web document, and the program will remove documents whose duplicate proportion exceeds the preset threshold. This function implements "Repetition Removal" as described in [Gopher](https://arxiv.org/abs/2112.11446).
 
 ```bash
 spark-submit --master ${SPARK_MASTER_ADDR} \
