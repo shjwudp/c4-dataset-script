@@ -24,6 +24,8 @@ def parse_args():
     )
     parser.add_argument("--output_bad_lines", default="bad_lines.jsonl.zst",
         help="output file for bad lines")
+    parser.add_argument("--bad_words_ratio", default=0.05, type=float,
+        help="Document filtering conditions, when the number of bad words in the document exceeds this ratio, it will be screened out.")
 
     args = parser.parse_args()
 
@@ -35,10 +37,10 @@ def is_bad_line(line):
     if not any(line.endswith(punc) for punc in ending_punctuations):
         return True
 
-    if len(line) < 5 or len(line) > 500:
+    if len(line) < 5:
         return True
 
-    ill_word_regex = "[-]|□|■|�|[①-⑳]|[⑴-⒇]|[㈠-㈩]|[⒈-⒓]"
+    ill_word_regex = "[-]|□|■|�"
 
     if re.search(ill_word_regex, line) != None:
         return True
@@ -46,14 +48,15 @@ def is_bad_line(line):
     return False
 
 
-def is_bad_doc(doc, badwords_filepath):
-    count = 0
+def is_bad_doc(args, doc, badwords_filepath):
+    bad_words_character_count = 0
     for bad_word in open(badwords_filepath):
         bad_word = bad_word.strip()
         if bad_word in doc:
-            count += doc.count(bad_word)
-            if count > 3:
-                return True
+            bad_words_character_count += doc.count(bad_word) * len(bad_word)
+
+    if bad_words_character_count / len(doc) > args.bad_words_ratio:
+        return True
 
     return False
 
@@ -69,7 +72,7 @@ def main():
             continue
 
         if args.badwords_filepath is not None:
-            if is_bad_doc(j["text"], args.badwords_filepath):
+            if is_bad_doc(args, j["text"], args.badwords_filepath):
                 print(json.dumps(j, ensure_ascii=False), file=bad_lines_file)
                 continue
 
