@@ -97,9 +97,9 @@ spark-submit --master ${SPARK_MASTER_ADDR} \
 
 *About 62.67% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_Remove-Duplicated-Text_samples.jsonl).*
 
-## 5. Remove documents that are over self-repeating - Repetion Removal in DeepMind MassiveText
+## 5. Remove documents that are over self-repeating - Repetition Removal in DeepMind MassiveText
 
-Check the percentage of duplicate content in the web document, and the program will remove documents whose duplicate proportion exceeds the preset threshold. This function implements "Repetion Removal" as described in [Gopher](https://arxiv.org/abs/2112.11446).
+Check the percentage of duplicate content in the web document, and the program will remove documents whose duplicate proportion exceeds the preset threshold. This function implements "Repetition Removal" as described in [Gopher](https://arxiv.org/abs/2112.11446).
 
 ```bash
 spark-submit --master ${SPARK_MASTER_ADDR} \
