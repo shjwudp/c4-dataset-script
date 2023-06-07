@@ -86,8 +86,6 @@ cat ./download-docs/*/part-* | \
 
 ## 4. Remove duplicated text
 
-To eliminate duplicate text, I use the text deduplication strategy from C4.
-
 To eliminate duplicate text, I use the text deduplication strategy from C4. The algorithm divides the document into lines, hashes them, and removes any duplicate lines from the dataset. This effective approach is particularly useful for removing repeated header and footer content.
 
 ```bash
