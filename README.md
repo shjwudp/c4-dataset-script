@@ -86,7 +86,9 @@ cat ./download-docs/*/part-* | \
 
 ## 4. Remove duplicated text
 
-Execute text deduplication strategy comes from C4. The algorithm cuts the document into lines and hashes and deduplicates all lines in the data set. This simple strategy works very well for duplicated header and footer content.
+To eliminate duplicate text, I use the text deduplication strategy from C4.
+
+To eliminate duplicate text, I use the text deduplication strategy from C4. The algorithm divides the document into lines, hashes them, and removes any duplicate lines from the dataset. This effective approach is particularly useful for removing repeated header and footer content.
 
 ```bash
 spark-submit --master ${SPARK_MASTER_ADDR} \
