@@ -95,7 +95,7 @@ spark-submit --master ${SPARK_MASTER_ADDR} \
         --output ./deduplicated_text
 ```
 
-*About 62.67% of documents are filtered out in this stage. You can see samples of filtered documents [here](data/Chinese_Remove-Duplicated-Text_samples.jsonl).*
+*About 62.67% of documents are filtered out in this stage. You can see samples of filtered lines [here](data/Chinese_Remove-Duplicated-Text_samples.jsonl).*
 
 ## 5. Remove documents that are over self-repeating - Repetition Removal in DeepMind MassiveText
 
